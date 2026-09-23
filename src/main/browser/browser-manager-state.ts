@@ -15,6 +15,7 @@ import type {
   PendingPopupEvent,
   BrowserGuestPolicy,
   BrowserManagerLoadError,
+  BrowserPopupCaptureObserver,
   PopupOwnerContext
 } from './browser-manager-types'
 import type {
@@ -161,6 +162,37 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
   protected readonly pendingDownloadIdsByGuestId = new Map<number, string[]>()
   protected readonly downloadsById = new Map<string, ActiveDownload>()
   protected readonly grabSessionController = new BrowserGrabSessionController()
+  // Why a set of one in practice: the agent-browser bridge is the only capture
+  // owner, but a set keeps registration order deterministic if that changes.
+  private readonly popupCaptureObservers = new Set<BrowserPopupCaptureObserver>()
+
+  addPopupCaptureObserver(observer: BrowserPopupCaptureObserver): void {
+    this.popupCaptureObservers.add(observer)
+  }
+
+  removePopupCaptureObserver(observer: BrowserPopupCaptureObserver): void {
+    this.popupCaptureObservers.delete(observer)
+  }
+
+  protected notifyPopupCaptureOpened(browserPageId: string, popup: Electron.WebContents): void {
+    for (const observer of this.popupCaptureObservers) {
+      try {
+        observer.onPopupOpened(browserPageId, popup)
+      } catch {
+        // Why: a capture observer must never break popup creation — it only listens.
+      }
+    }
+  }
+
+  protected notifyPopupCaptureClosed(popupWebContentsId: number): void {
+    for (const observer of this.popupCaptureObservers) {
+      try {
+        observer.onPopupClosed(popupWebContentsId)
+      } catch {
+        // Why: a capture observer must never break popup teardown — it only listens.
+      }
+    }
+  }
 
   setDictationShortcutForwardingPredicate(predicate: (() => boolean) | null): void {
     this.shouldForwardDictationShortcut = predicate

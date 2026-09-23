@@ -297,7 +297,21 @@ export abstract class BrowserManagerNavigation extends BrowserManagerVisibility 
     targetUrl: string,
     options: PopupChildWindowOptions
   ): Electron.WebContents {
-    const popup = openPopupWithOriginBar(options, targetUrl)
+    const ownerBrowserPageId = this.resolvePopupOwnerContext(openerGuest.id)?.browserTabId
+    const popup = openPopupWithOriginBar(options, targetUrl, (contents) => {
+      // Why: prepareContent is the only hook that provably runs before the popup's
+      // first navigation — attaching the opener's capture here (not after return)
+      // is what records the initial request. Never fail closed: capture attach
+      // must not destroy the popup.
+      try {
+        if (ownerBrowserPageId) {
+          this.notifyPopupCaptureOpened(ownerBrowserPageId, contents)
+        }
+      } catch {
+        // Best-effort notice: the popup below still opens and gets its policies.
+      }
+      return true
+    })
     // Why: Electron emits no did-create-window for createWindow children, so attach the opener's policies here.
     this.attachGuestPolicies(
       popup.contentWebContents,

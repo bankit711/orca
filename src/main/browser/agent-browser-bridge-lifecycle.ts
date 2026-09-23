@@ -1,11 +1,11 @@
 import { CdpWsProxy } from './cdp-ws-proxy'
 import { BrowserError } from './cdp-bridge'
 import { ORCA_TAB_SESSION_PREFIX } from './agent-browser-orphan-sweep'
-import { AgentBrowserBridgeRawProcess } from './agent-browser-bridge-raw-process'
+import { AgentBrowserBridgePopupCapture } from './agent-browser-bridge-popup-capture'
 import type { AgentBrowserCleanupOptions } from './agent-browser-bridge-types'
 import { AGENT_BROWSER_CLEANUP_TIMEOUT_MS } from './agent-browser-bridge-types'
 
-export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawProcess {
+export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgePopupCapture {
   async onTabClosed(webContentsId: number): Promise<void> {
     const browserPageId = this.resolveTabIdSafe(webContentsId)
     const owningWorktreeId = browserPageId
@@ -201,6 +201,10 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
         // Creation failures are handled by the original caller; teardown still rejects queued work below.
       }
     }
+
+    // Why: a destroyed opener must not keep popup debugger leases or entries — the
+    // popup requests belong to this page's capture and die with it.
+    this.releasePopupCapturesForSession(sessionName)
 
     const session = this.sessions.get(sessionName)
     if (!session) {
