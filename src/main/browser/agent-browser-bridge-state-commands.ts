@@ -228,7 +228,7 @@ export abstract class AgentBrowserBridgeStateCommands extends AgentBrowserBridge
       if (session) {
         session.activeCapture = false
       }
-      this.detachPopupCapturesForSession(sessionName)
+      this.stopPopupCapturesForSession(sessionName)
       return result
     })
   }

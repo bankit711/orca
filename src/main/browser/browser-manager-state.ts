@@ -162,35 +162,27 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
   protected readonly pendingDownloadIdsByGuestId = new Map<number, string[]>()
   protected readonly downloadsById = new Map<string, ActiveDownload>()
   protected readonly grabSessionController = new BrowserGrabSessionController()
-  // Why a set of one in practice: the agent-browser bridge is the only capture
-  // owner, but a set keeps registration order deterministic if that changes.
-  private readonly popupCaptureObservers = new Set<BrowserPopupCaptureObserver>()
+  // Why one slot instead of a set: the agent-browser bridge is the only capture
+  // owner, so a setter keeps the subscription visible instead of a registry.
+  private popupCaptureObserver: BrowserPopupCaptureObserver | null = null
 
-  addPopupCaptureObserver(observer: BrowserPopupCaptureObserver): void {
-    this.popupCaptureObservers.add(observer)
-  }
-
-  removePopupCaptureObserver(observer: BrowserPopupCaptureObserver): void {
-    this.popupCaptureObservers.delete(observer)
+  setPopupCaptureObserver(observer: BrowserPopupCaptureObserver | null): void {
+    this.popupCaptureObserver = observer
   }
 
   protected notifyPopupCaptureOpened(browserPageId: string, popup: Electron.WebContents): void {
-    for (const observer of this.popupCaptureObservers) {
-      try {
-        observer.onPopupOpened(browserPageId, popup)
-      } catch {
-        // Why: a capture observer must never break popup creation — it only listens.
-      }
+    try {
+      this.popupCaptureObserver?.onPopupOpened(browserPageId, popup)
+    } catch {
+      // Why: a capture observer must never break popup creation — it only listens.
     }
   }
 
   protected notifyPopupCaptureClosed(popupWebContentsId: number): void {
-    for (const observer of this.popupCaptureObservers) {
-      try {
-        observer.onPopupClosed(popupWebContentsId)
-      } catch {
-        // Why: a capture observer must never break popup teardown — it only listens.
-      }
+    try {
+      this.popupCaptureObserver?.onPopupClosed(popupWebContentsId)
+    } catch {
+      // Why: a capture observer must never break popup teardown — it only listens.
     }
   }
 

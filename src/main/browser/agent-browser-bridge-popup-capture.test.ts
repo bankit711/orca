@@ -65,13 +65,18 @@ import {
 
 overrideBridgeWebContentsLookup(AgentBrowserBridge.prototype, webContentsFromIdMock)
 
-const OPENER_ENTRY = {
-  url: 'https://opener.example/app',
+// Why: agent-browser 0.27 `network requests` returns {requests:[...]} with
+// epoch-ms timestamps — the fixture copies that wire shape, including the
+// opener's verbatim query string, which this patch leaves alone.
+const OPENER_ITEM = {
+  requestId: 'daemon-req-1',
+  url: 'https://opener.example/app?session=keep-me',
   method: 'GET',
+  headers: { accept: 'text/html' },
+  timestamp: 1780000000000,
+  resourceType: 'Document',
   status: 200,
-  mimeType: 'text/html',
-  size: 64,
-  timestamp: 1
+  mimeType: 'text/html'
 }
 
 function respondToDaemonCommands(): void {
@@ -82,11 +87,7 @@ function respondToDaemonCommands(): void {
         return { stdin: { on: vi.fn(), end: vi.fn() } }
       }
       if (args.includes('requests')) {
-        cb(
-          null,
-          JSON.stringify({ success: true, data: { entries: [OPENER_ENTRY], truncated: false } }),
-          ''
-        )
+        cb(null, JSON.stringify({ success: true, data: { requests: [OPENER_ITEM] } }), '')
         return { stdin: { on: vi.fn(), end: vi.fn() } }
       }
       const leaf = args.at(-2)
@@ -107,15 +108,29 @@ function emitPopupDebuggerMessage(popup: MockWebContents, method: string, params
 }
 
 function emitPopupResponse(popup: MockWebContents): void {
+  emitPopupDebuggerMessage(popup, 'Network.requestWillBeSent', {
+    requestId: 'popup-req-1',
+    request: { url: 'https://popup.example/healthz?code=SECRET', method: 'POST' },
+    timestamp: 1.5
+  })
   emitPopupDebuggerMessage(popup, 'Network.responseReceived', {
     requestId: 'popup-req-1',
-    response: { url: 'https://popup.example/healthz', status: 200, mimeType: 'text/plain' },
-    timestamp: 2
+    response: {
+      url: 'https://popup.example/healthz?code=SECRET&state=x#frag',
+      status: 201,
+      mimeType: 'application/json'
+    },
+    type: 'XHR',
+    timestamp: 1.6
   })
   emitPopupDebuggerMessage(popup, 'Network.loadingFinished', {
     requestId: 'popup-req-1',
     encodedDataLength: 12
   })
+}
+
+function messageListenerCount(popup: MockWebContents): number {
+  return popup.debugger.on.mock.calls.filter(([event]) => event === 'message').length
 }
 
 describe('AgentBrowserBridge popup capture', () => {
@@ -146,7 +161,7 @@ describe('AgentBrowserBridge popup capture', () => {
     return bridge
   }
 
-  it('reports the opener and popup initial requests exactly once under the opener', async () => {
+  it('merges opener and popup requests exactly once into the daemon requests shape', async () => {
     const bridge = bridgeWithOpener()
     await bridge.captureStart(undefined, 'tab-1')
 
@@ -154,68 +169,68 @@ describe('AgentBrowserBridge popup capture', () => {
     // bridge attaches while capturing, so the initial request is recorded.
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the shared mock implements the debugger surface the bridge exercises (on/removeListener/sendCommand/isDestroyed), which is all onPopupOpened touches.
     bridge.onPopupOpened('tab-1', popup as never)
-    emitPopupDebuggerMessage(popup, 'Network.responseReceived', {
-      requestId: 'popup-req-1',
-      response: {
-        url: 'https://popup.example/healthz',
-        status: 200,
-        mimeType: 'text/plain'
-      },
-      timestamp: 2
-    })
-    emitPopupDebuggerMessage(popup, 'Network.loadingFinished', {
-      requestId: 'popup-req-1',
-      encodedDataLength: 12
-    })
+    emitPopupResponse(popup)
 
     const result = await bridge.networkLog(undefined, undefined, 'tab-1')
-    expect(result.entries).toHaveLength(2)
-    expect(result.entries[0]).toEqual(OPENER_ENTRY)
-    expect(result.entries[1]).toMatchObject({
+    expect(result).not.toHaveProperty('entries')
+    expect(result.requests).toHaveLength(2)
+    expect(result.requests[0]).toEqual(OPENER_ITEM)
+    // Popup entries hide query and fragment but keep origin, path and method.
+    expect(result.requests[1]).toEqual({
+      requestId: 'popup-req-1',
       url: 'https://popup.example/healthz',
-      status: 200,
-      mimeType: 'text/plain',
-      size: 12
+      method: 'POST',
+      timestamp: expect.any(Number),
+      resourceType: 'XHR',
+      status: 201,
+      mimeType: 'application/json'
     })
-    expect(result.truncated).toBe(false)
+    expect(result.requests[1].timestamp).toBeGreaterThan(1_000_000_000_000)
   })
 
-  it('attaches popups opened before capture start and detaches on capture stop', async () => {
-    const bridge = bridgeWithOpener()
-    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the shared mock implements the debugger surface the bridge exercises (on/removeListener/sendCommand/isDestroyed), which is all onPopupOpened touches.
-    bridge.onPopupOpened('tab-1', popup as never)
-    expect(popup.debugger.on).not.toHaveBeenCalledWith('message', expect.anything())
-
-    await bridge.captureStart(undefined, 'tab-1')
-    expect(popup.debugger.on).toHaveBeenCalledWith('message', expect.anything())
-    expect(popup.debugger.sendCommand).toHaveBeenCalledWith('Network.enable', {})
-
-    emitPopupResponse(popup)
-    expect((await bridge.networkLog(undefined, undefined, 'tab-1')).entries).toHaveLength(2)
-
-    await bridge.captureStop(undefined, 'tab-1')
-    expect(popup.debugger.removeListener).toHaveBeenCalledWith('message', expect.anything())
-    // Why: stopping the capture drops the popup entries with the lease — a later
-    // read reports only what the opener's own session still holds.
-    expect((await bridge.networkLog(undefined, undefined, 'tab-1')).entries).toEqual([OPENER_ENTRY])
-  })
-
-  it('releases the popup lease on popup close and opener retirement', async () => {
+  it('keeps a closed popup request readable until capture stop', async () => {
     const bridge = bridgeWithOpener()
     await bridge.captureStart(undefined, 'tab-1')
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the shared mock implements the debugger surface the bridge exercises (on/removeListener/sendCommand/isDestroyed), which is all onPopupOpened touches.
     bridge.onPopupOpened('tab-1', popup as never)
     emitPopupResponse(popup)
-    expect((await bridge.networkLog(undefined, undefined, 'tab-1')).entries).toHaveLength(2)
 
     bridge.onPopupClosed(200)
     expect(popup.debugger.removeListener).toHaveBeenCalledWith('message', expect.anything())
-    expect((await bridge.networkLog(undefined, undefined, 'tab-1')).entries).toEqual([OPENER_ENTRY])
+    expect((await bridge.networkLog(undefined, undefined, 'tab-1')).requests).toHaveLength(2)
 
-    // Reopening re-registers, and retiring the opener releases it again.
+    await bridge.captureStop(undefined, 'tab-1')
+    expect((await bridge.networkLog(undefined, undefined, 'tab-1')).requests).toEqual([OPENER_ITEM])
+  })
+
+  it('preserves live popup registration across session reset and stops recording', async () => {
+    const bridge = bridgeWithOpener()
+    await bridge.captureStart(undefined, 'tab-1')
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the shared mock implements the debugger surface the bridge exercises (on/removeListener/sendCommand/isDestroyed), which is all onPopupOpened touches.
     bridge.onPopupOpened('tab-1', popup as never)
+    emitPopupResponse(popup)
+    expect(messageListenerCount(popup)).toBe(1)
+
+    await bridge.onProcessSwap('tab-1', 100, 100)
+    // The restarted session no longer captures, so popup entries stop merging.
+    expect((await bridge.networkLog(undefined, undefined, 'tab-1')).requests).toEqual([OPENER_ITEM])
+
+    // The still-open popup is still registered: the next capture reattaches it.
+    await bridge.captureStart(undefined, 'tab-1')
+    expect(messageListenerCount(popup)).toBe(2)
+    emitPopupResponse(popup)
+    expect((await bridge.networkLog(undefined, undefined, 'tab-1')).requests).toHaveLength(2)
+  })
+
+  it('releases popup capture on opener retirement', async () => {
+    const bridge = bridgeWithOpener()
+    await bridge.captureStart(undefined, 'tab-1')
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the shared mock implements the debugger surface the bridge exercises (on/removeListener/sendCommand/isDestroyed), which is all onPopupOpened touches.
+    bridge.onPopupOpened('tab-1', popup as never)
+    emitPopupResponse(popup)
+
     await bridge.onPageClosed('tab-1')
     expect(popup.debugger.removeListener).toHaveBeenCalledWith('message', expect.anything())
+    expect((await bridge.networkLog(undefined, undefined, 'tab-1')).requests).toEqual([OPENER_ITEM])
   })
 })

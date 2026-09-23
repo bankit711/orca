@@ -291,7 +291,7 @@ describe('browserManager popup child policies', () => {
       rendererWebContentsId
     })
     const observer = { onPopupOpened: vi.fn(), onPopupClosed: vi.fn() }
-    browserManager.addPopupCaptureObserver(observer)
+    browserManager.setPopupCaptureObserver(observer)
     try {
       const didCreateWindowHandler = guestOnMock.mock.calls.find(
         ([event]) => event === 'did-create-window'
@@ -313,7 +313,7 @@ describe('browserManager popup child policies', () => {
       browserManager.unregisterGuest('browser-9')
       expect(observer.onPopupClosed).toHaveBeenCalledWith(secondChildGuest.id)
     } finally {
-      browserManager.removePopupCaptureObserver(observer)
+      browserManager.setPopupCaptureObserver(null)
     }
   })
 })

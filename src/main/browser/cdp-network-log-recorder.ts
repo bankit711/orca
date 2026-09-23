@@ -9,10 +9,17 @@ export type NetworkLogRecordTarget = {
   networkRequestMap: Map<string, BrowserNetworkEntry>
 }
 
+export type NetworkResponseOverrides = {
+  url?: string
+  method?: string
+  timestamp?: number
+}
+
 export function recordNetworkResponseReceived(
   target: NetworkLogRecordTarget,
-  params: unknown
-): void {
+  params: unknown,
+  overrides?: NetworkResponseOverrides
+): boolean {
   const p = params as
     | {
         requestId?: string
@@ -26,32 +33,35 @@ export function recordNetworkResponseReceived(
         timestamp?: number
       }
     | undefined
-  if (p?.response) {
-    const entry: BrowserNetworkEntry = {
-      url: p.response.url ?? '',
-      method: '',
-      status: p.response.status ?? 0,
-      mimeType: p.response.mimeType ?? '',
-      size: 0,
-      timestamp: p.timestamp ?? Date.now()
-    }
-    target.networkLog.push(entry)
-    // Why: map requestId→entry so loadingFinished attributes size to the right response, not the latest one.
-    if (p.requestId) {
-      target.networkRequestMap.set(p.requestId, entry)
-    }
-    if (target.networkLog.length > NETWORK_LOG_ENTRY_LIMIT) {
-      const evicted = target.networkLog.shift()
-      if (evicted) {
-        for (const [requestId, requestEntry] of target.networkRequestMap) {
-          if (requestEntry === evicted) {
-            target.networkRequestMap.delete(requestId)
-            break
-          }
-        }
+  if (!p?.response) {
+    return false
+  }
+  const entry: BrowserNetworkEntry = {
+    url: overrides?.url ?? p.response.url ?? '',
+    method: overrides?.method ?? '',
+    status: p.response.status ?? 0,
+    mimeType: p.response.mimeType ?? '',
+    size: 0,
+    timestamp: overrides?.timestamp ?? p.timestamp ?? Date.now()
+  }
+  target.networkLog.push(entry)
+  // Why: map requestId→entry so loadingFinished attributes size to the right response, not the latest one.
+  if (p.requestId) {
+    target.networkRequestMap.set(p.requestId, entry)
+  }
+  if (target.networkLog.length <= NETWORK_LOG_ENTRY_LIMIT) {
+    return false
+  }
+  const evicted = target.networkLog.shift()
+  if (evicted) {
+    for (const [requestId, requestEntry] of target.networkRequestMap) {
+      if (requestEntry === evicted) {
+        target.networkRequestMap.delete(requestId)
+        break
       }
     }
   }
+  return true
 }
 
 export function finishNetworkRequest(

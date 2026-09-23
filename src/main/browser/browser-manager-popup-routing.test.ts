@@ -591,7 +591,7 @@ describe('browserManager', () => {
       rendererWebContentsId
     })
     const captureObserver = { onPopupOpened: vi.fn(), onPopupClosed: vi.fn() }
-    browserManager.addPopupCaptureObserver(captureObserver)
+    browserManager.setPopupCaptureObserver(captureObserver)
     try {
       const popupContents = {
         id: 151,
@@ -672,7 +672,7 @@ describe('browserManager', () => {
       expect(captureObserver.onPopupOpened).toHaveBeenCalledWith('browser-1', preCreatedContents)
       expect(captureObserver.onPopupOpened).toHaveBeenCalledWith('browser-1', popupContents)
     } finally {
-      browserManager.removePopupCaptureObserver(captureObserver)
+      browserManager.setPopupCaptureObserver(null)
     }
   })
 

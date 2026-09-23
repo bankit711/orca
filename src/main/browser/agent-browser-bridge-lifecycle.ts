@@ -41,6 +41,9 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgePopu
     const sessionName = `${ORCA_TAB_SESSION_PREFIX}${browserPageId}`
     await this.destroySession(sessionName)
     this.pendingInterceptRestore.delete(sessionName)
+    // Why: opener retirement is the end of its popups' readable entries — the
+    // manager's per-popup close notices already detached them.
+    this.releasePopupCapturesForSession(sessionName)
   }
 
   async onProcessSwap(
@@ -147,6 +150,9 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgePopu
       if (session.activeInterceptPatterns.length > 0) {
         this.pendingInterceptRestore.set(sessionName, [...session.activeInterceptPatterns])
       }
+      // Why: a restarted session no longer captures, so its popups must stop
+      // recording too — registrations survive for the next capture start.
+      this.detachPopupCapturesForSession(sessionName)
       this.sessions.delete(sessionName)
       this.pendingSessionCreation.delete(sessionName)
       if (session.activeProcess) {
@@ -202,9 +208,10 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgePopu
       }
     }
 
-    // Why: a destroyed opener must not keep popup debugger leases or entries — the
-    // popup requests belong to this page's capture and die with it.
-    this.releasePopupCapturesForSession(sessionName)
+    // Why: a destroyed session stops popup recording, but a still-open popup
+    // stays registered — the manager's close notice owns registration lifetime,
+    // so a transient daemon reset cannot silently drop a live popup.
+    this.detachPopupCapturesForSession(sessionName)
 
     const session = this.sessions.get(sessionName)
     if (!session) {
