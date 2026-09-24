@@ -36,6 +36,8 @@ export type TuiAgentConfig = {
   draftPromptFlag?: string
   /** Startup env var that seeds the input without submitting, for agents with no `--prefill`-style flag (e.g. pi); avoids the paste-after-ready race. */
   draftPromptEnvVar?: string
+  /** Claude Code follows pasted text only where the user's typed words ask, so dispatch briefs need a typed lead line. */
+  pasteNeedsTypedRequest?: boolean
   /** Pre-write a trust artifact so the agent's first-launch "trust this folder?" menu doesn't consume the bracketed paste (see agent-trust-presets.ts). */
   preflightTrust?: 'cursor' | 'copilot' | 'codex' | 'antigravity'
   /** Agent-specific signal that the composer is ready for paste, stronger than the default quiet-render window. */
@@ -72,6 +74,7 @@ const TUI_AGENT_CONFIG_SOURCE: Record<TuiAgent, TuiAgentConfigSource> = {
   claude: {
     detectCmd: 'claude',
     promptInjectionMode: 'argv',
+    pasteNeedsTypedRequest: true,
     // Why: `claude --prefill <text>` seeds the input without submitting, avoiding the paste-after-ready race (PR https://github.com/stablyai/orca/pull/926).
     draftPromptFlag: '--prefill'
   },
@@ -89,7 +92,8 @@ const TUI_AGENT_CONFIG_SOURCE: Record<TuiAgent, TuiAgentConfigSource> = {
       win32: `${getOrcaCliCommandNameForPlatform('win32')} claude-teams`
     },
     expectedProcess: 'claude',
-    promptInjectionMode: 'stdin-after-start'
+    promptInjectionMode: 'stdin-after-start',
+    pasteNeedsTypedRequest: true
   },
   openclaude: {
     detectCmd: 'openclaude',
@@ -128,7 +132,13 @@ const TUI_AGENT_CONFIG_SOURCE: Record<TuiAgent, TuiAgentConfigSource> = {
     detectCmd: 'opencode',
     promptInjectionMode: 'flag-prompt',
     // Why: opencode enables bracketed paste before its composer mounts; wait for the post-\x1b[?2004h show-cursor so paste lands.
-    draftPasteReadySignal: 'render-cursor-after-bracketed-paste'
+    draftPasteReadySignal: 'render-cursor-after-bracketed-paste',
+    // Why 20s: measured on two Windows hosts (ConPTY dll backend, as pinned by
+    // local-pty-utils), opencode does not enable bracketed paste until ~4.8s and its
+    // composer is not ready until ~10s — so the 8s default expired first and the draft
+    // was pasted blind, mid-startup (#22479). The signal itself fired every time in
+    // those runs, so the budget was the problem, not a dropped escape.
+    draftPasteReadyTimeoutMs: 20_000
   },
   // Why: opencode2 installs as a separate binary and uses the same prompt flags.
   // Its @opentui composer keeps the same cursor-gated paste signal.
@@ -138,7 +148,8 @@ const TUI_AGENT_CONFIG_SOURCE: Record<TuiAgent, TuiAgentConfigSource> = {
     launchCmd: 'opencode2 --standalone',
     expectedProcess: 'opencode2',
     promptInjectionMode: 'flag-prompt',
-    draftPasteReadySignal: 'render-cursor-after-bracketed-paste'
+    draftPasteReadySignal: 'render-cursor-after-bracketed-paste',
+    draftPasteReadyTimeoutMs: 20_000
   },
   'mimo-code': {
     detectCmd: 'mimo',
@@ -225,10 +236,6 @@ const TUI_AGENT_CONFIG_SOURCE: Record<TuiAgent, TuiAgentConfigSource> = {
   },
   codebuff: {
     detectCmd: 'codebuff',
-    promptInjectionMode: 'stdin-after-start'
-  },
-  freebuff: {
-    detectCmd: 'freebuff',
     promptInjectionMode: 'stdin-after-start'
   },
   'command-code': {

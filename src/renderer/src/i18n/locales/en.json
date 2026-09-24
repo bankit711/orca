@@ -584,7 +584,6 @@
           "9e2a9bb87b": "Continue",
           "6f8056a565": "Command Code",
           "4238b771b5": "Codebuff",
-          "b0b350de65": "Freebuff",
           "cbaf0c2e0b": "Cline",
           "1f8a19e9ad": "Autohand Code",
           "5e8eff11b3": "Auggie",
@@ -1970,11 +1969,16 @@
         "continueUnconfirmed": "Continuation delivery is unconfirmed for {{value0}} chats. Open them to check before sending another message.",
         "continueUnconfirmed_one": "Continuation delivery is unconfirmed for {{value0}} chat. Open it to check before sending another message.",
         "continueUnconfirmed_other": "Continuation delivery is unconfirmed for {{value0}} chats. Open them to check before sending another message.",
-        "continueRefused": "{{value0}} chats could not be continued. Open them to continue manually.",
-        "continueRefused_one": "{{value0}} chat could not be continued. Open it to continue manually.",
-        "continueRefused_other": "{{value0}} chats could not be continued. Open them to continue manually.",
         "dismissAll": "Dismiss all",
-        "dismissUnconfirmed": "Dismissing the resume offer was not confirmed — it may still be in the status bar."
+        "dismissUnconfirmed": "Dismissing the resume offer was not confirmed — it may still be in the status bar.",
+        "notContinuedOne": "1 chat couldn’t be resumed",
+        "notContinuedMany": "{{value0}} chats couldn’t be resumed",
+        "notConfirmedOne": "Couldn’t confirm 1 chat was resumed",
+        "notConfirmedMany": "Couldn’t confirm {{value0}} chats were resumed",
+        "notConfirmedOtherOne": "Couldn’t confirm 1 other chat was resumed",
+        "notConfirmedOtherMany": "Couldn’t confirm {{value0}} other chats were resumed",
+        "show": "Show",
+        "dismiss": "Dismiss"
       },
       "StarNagCard": {
         "92b0f9d921": "is authenticated and try again.",
@@ -3980,6 +3984,11 @@
                 "apiKey": "MiniMax API key expired. Replace it in Settings.",
                 "cookie": "MiniMax session cookie expired. Replace it in Settings."
               }
+            },
+            "usage": {
+              "noSubscription": {
+                "label": "No subscription"
+              }
             }
           },
           "SshTargetStatusRow": {
@@ -4070,7 +4079,17 @@
             "label": "{{value0}} chats to resume",
             "ariaLabelOne": "1 chat available to resume",
             "ariaLabel": "{{value0}} chats available to resume",
-            "tooltip": "Open interrupted chats available to resume"
+            "tooltip": "Open interrupted chats available to resume",
+            "failedLabelOne": "1 chat failed to resume",
+            "failedLabel": "{{value0}} chats failed to resume",
+            "failedAriaOne": "1 chat failed to resume. Click for details.",
+            "failedAria": "{{value0}} chats failed to resume. Click for details.",
+            "failedTooltip": "Chats Orca could not resume after the restart. Click for details.",
+            "checkLabelOne": "1 chat to check",
+            "checkLabel": "{{value0}} chats to check",
+            "checkAriaOne": "1 chat to check after resuming. Click for details.",
+            "checkAria": "{{value0}} chats to check after resuming. Click for details.",
+            "checkTooltip": "Chats Orca couldn’t resume, or couldn’t confirm it resumed, after the restart. Click for details."
           }
         }
       },
@@ -6637,7 +6656,16 @@
           "4e32e030b2": "Stored locally. Orca sends it only to platform.minimax.io for usage refreshes.",
           "5e08b0fe57": "Stored locally and sent only to platform.minimax.io for usage refreshes.",
           "79418c782a": "Open platform.minimax.io/console/usage in your browser, sign in, then copy the Cookie request header from DevTools (Network → any remains request → Cookie).",
-          "f5d8d2a6a1": "Open platform.minimax.io/console/usage in your browser and sign in."
+          "f5d8d2a6a1": "Open platform.minimax.io/console/usage in your browser and sign in.",
+          "opencodeGo": {
+            "apiKey": {
+              "title": "OpenCode Go API Key",
+              "description": "Optional override. Orca otherwise uses the key OpenCode saved when you ran /connect, then OPENCODE_API_KEY.",
+              "label": "OpenCode Go API key",
+              "placeholder": "Leave blank to use the key saved by /connect or OPENCODE_API_KEY",
+              "help": "Used for OpenCode Go usage in the status bar. The session cookie below is only needed for legacy console (OpenCode Black) accounts."
+            }
+          }
         },
         "AdvancedPane": {
           "40b29e0bf3": "Restart",
@@ -7185,7 +7213,16 @@
             "structuredToggleLabel": "Toggle updated structured native chat",
             "resumeTitle": "Resume working chats automatically after a restart",
             "resumeCopy": "When Orca quits or installs an update, chats that were mid-turn are automatically resumed when Orca is reopened.",
-            "resumeToggleLabel": "Toggle automatic resume after a restart"
+            "resumeToggleLabel": "Toggle automatic resume after a restart",
+            "shellEnvNamesLabel": "Variables to pass from your shell",
+            "shellEnvNamePlaceholder": "Variable name",
+            "shellEnvNameAdd": "Add",
+            "shellEnvNameRemove": "Remove {{value0}}",
+            "shellEnvNamesEmpty": "No variables added yet.",
+            "shellEnvNamesAlwaysPassed": "PATH, locale, and SSH_AUTH_SOCK are always passed. Applies the next time a chat starts or resumes.",
+            "shellEnvTitle": "Use your shell environment",
+            "shellEnvCopy": "Codex and Claude chats start with every variable your login shell exports, the same as a terminal. Turn off to choose which ones they get.",
+            "shellEnvToggleLabel": "Toggle using your shell environment"
           },
           "agentDashboard": {
             "title": "Agent Dashboard",
@@ -9989,6 +10026,20 @@
             }
           }
         },
+        "machine": {
+          "name": {
+            "search": {
+              "title": "Machine name",
+              "description": "Choose the name other devices and hosts list this computer under.",
+              "machineName": "machine name",
+              "machine": "machine",
+              "hostname": "hostname",
+              "computer": "computer",
+              "rename": "rename",
+              "name": "name"
+            }
+          }
+        },
         "mobile": {
           "emulator": {
             "search": {
@@ -11322,6 +11373,12 @@
           "refresh": "Refresh network interfaces",
           "step2RelayDescription": "Optional. Pick the Wi‑Fi or Tailscale address your phone should use when nearby — usually faster than Relay. Relay still works when you’re away.",
           "step2RelayDisclosure": "Also use a faster local path"
+        },
+        "MachineNameField": {
+          "label": "Machine name",
+          "description": "Other devices and hosts see “{{name}}”. Leave this blank to use the computer’s own name.",
+          "pending": "Other devices and hosts see this name. Leave it blank to use the detected computer name.",
+          "placeholder": "Detected automatically"
         },
         "MobileRelayBetaAvailability": {
           "about": "About the Orca Relay beta",
@@ -14993,7 +15050,32 @@
           "1833dbbc43": "Markdown",
           "7005960d73": "Code",
           "8dbe39a152": "More cell actions",
-          "fa8fd99cf1": "Cell type"
+          "fa8fd99cf1": "Cell type",
+          "kernelStarting": "Starting…",
+          "kernelInstalling": "Installing ipykernel…",
+          "kernelDead": "Kernel died",
+          "selectKernel": "Select Kernel",
+          "notPython": "That file is not a Python interpreter.",
+          "interrupt": "Interrupt",
+          "restart": "Restart kernel",
+          "runAll": "Run all",
+          "clearAll": "Clear all outputs",
+          "notResponding": "Not responding. Restart kernel",
+          "findingPython": "Finding Python environments…",
+          "recommended": "Recommended",
+          "pythonOnPath": "Python on PATH",
+          "browsePython": "Browse for Python…",
+          "missingIpykernelTitle": "Install ipykernel?",
+          "missingIpykernel": "Running cells with '{{env}}' requires the ipykernel package.",
+          "copyCommand": "Copy command",
+          "chooseAnother": "Choose Another",
+          "install": "Install",
+          "kernelStartFailed": "The kernel failed to start.",
+          "noPython": "Python was not found on this computer. Install it from [python.org](https://www.python.org/downloads/), then run the cell again.",
+          "installFailed": "Installing ipykernel failed. Run `{{command}}` yourself, or create a virtual environment for this project with `{{venvCommand}}` and choose it as the kernel.",
+          "kernelDied": "The kernel died.",
+          "localOnly": "Notebook cells can only run for files on this computer.",
+          "pythonOnly": "Only Python notebooks can run in Orca."
         },
         "MarkdownPreview": {
           "e4683f70c4": "Cancel",
@@ -17153,6 +17235,26 @@
         "9a4c6b2d7e": "Skill sharing",
         "3d8e5f1b9c": "Share skills behind an unlisted link and install them on any machine you use.",
         "c5b3e8a17d": "Sign in to Orca"
+      },
+      "NativeChatResumeOutcomeRow": {
+        "openChat": "Open chat",
+        "retry": "Retry",
+        "dismiss": "Dismiss",
+        "unconfirmed": "Couldn’t confirm the chat was resumed",
+        "failed": "Couldn’t resume",
+        "statusFor": "{{value0}}: {{value1}}",
+        "dismissChat": "Dismiss \"{{value0}}\" in {{value1}}",
+        "toResume": "To resume:"
+      },
+      "NativeChatResumeFailureGuidance": {
+        "unconfirmed": "Orca couldn’t confirm the “continue” message was delivered. Open the chat and check before sending another.",
+        "superseded": "Open the chat and reply. New work arrived in it right after the restart, so Orca didn’t send its “continue” message.",
+        "conflict": "Another Orca window or terminal still owns this session. Close it, then retry.",
+        "ownershipUnknown": "Orca is still working out which process owns this session. Wait a moment, then retry.",
+        "notAttached": "The chat didn’t reconnect. Retry, or open it to start a fresh turn.",
+        "dispatchRejected": "The agent refused the “continue” message. Open the chat and send one yourself.",
+        "unsupported": "This chat can’t be resumed by Orca. Open it to see where it stopped.",
+        "fallback": "Orca couldn’t resume this chat. Open it to continue manually."
       }
     },
     "i18n": {
@@ -17545,9 +17647,7 @@
         }
       },
       "launchPromptNotDelivered": "Not delivered — check the terminal",
-      "structuredSessionCloseFailed": "Could not close this chat session",
       "structuredSessionLaunchFailed": "Could not open {{value0}} chat",
-      "structuredSessionCloseFailedDescription": "The terminal stayed open so the provider remains recoverable.",
       "handoff": {
         "stage": {
           "finishingChat": "Finishing chat session…",
@@ -17630,6 +17730,11 @@
         "notFound": "File not found: {{value0}}",
         "unverifiable": "Couldn't check {{value0}}: {{value1}}",
         "unresolved": "Couldn't resolve {{value0}} in this workspace"
+      },
+      "contextUsage": {
+        "label": "Context {{used}} of {{window}} tokens, {{percent}}% used",
+        "title": "Context",
+        "estimated": "Estimated from the last response."
       }
     },
     "tab": {
@@ -17910,6 +18015,8 @@
       "agentUnavailable": "{{agent}} was not detected on this workspace host.",
       "sent": "Session context sent to {{agent}} in a new session.",
       "deliveryFailed": "The new {{agent}} session started, but its context could not be sent.",
+      "deliveryUnconfirmed": "Orca could not confirm {{agent}} received the session context. Check the new session, and paste it yourself if its input is empty.",
+      "copyPrompt": "Copy prompt",
       "launchFailed": "Could not start a new {{agent}} session."
     },
     "status": {

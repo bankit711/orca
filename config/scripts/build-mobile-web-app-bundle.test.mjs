@@ -4,6 +4,7 @@ import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
+  MOBILE_WEB_APP_NATIVE_PARITY_STYLE,
   MOBILE_WEB_APP_ROOT_RESET,
   MOBILE_WEB_APP_SHIMS,
   bundleMobileWebApp,
@@ -338,6 +339,18 @@ describeBundling('the app bundle', () => {
     }
   }, 120_000)
 
+  it("ships react-native-web's hairline at one device pixel, whichever of its builds resolves", async () => {
+    const sources = allScriptSource(await bundleMobileWebApp())
+    // Minified, so the assignment reads `<name>.hairlineWidth=`; RNW's own value is the literal 1.
+    const assignments = sources.flatMap(
+      (source) => source.match(/\.hairlineWidth=[^;]{0,120}/g) ?? []
+    )
+    expect(assignments.length).toBeGreaterThan(0)
+    for (const assignment of assignments) {
+      expect(assignment).toContain('devicePixelRatio')
+    }
+  }, 120_000)
+
   it('embeds no absolute path from this checkout', async () => {
     // Every chunk, not only the entry: the route manifest names each route by absolute path, and
     // the chunk that import resolves to is where such a path would survive.
@@ -402,6 +415,7 @@ describeBundling('the app bundle', () => {
       await buildMobileWebAppBundle({ outDir })
       const html = await readFile(join(outDir, 'index.html'), 'utf8')
       expect(html).toContain(MOBILE_WEB_APP_ROOT_RESET)
+      expect(html).toContain(MOBILE_WEB_APP_NATIVE_PARITY_STYLE)
       // Literals rather than substrings taken off the constant, which would read it back against
       // itself and follow any rule dropped from it. Every rule, because the chain is only as
       // definite as its weakest link: a height on #root alone resolves against a body that has
@@ -482,14 +496,15 @@ describe('the Phase C budget', () => {
   })
 
   /** The one count above that must follow the tree, spelled so the census reads it. The sweep is
-   *  a row per route plus `h/_layout.tsx`, which is no screen, so it is that length less one. */
+   *  a row per route plus `_layout.tsx` and `h/_layout.tsx`, which are no screens, so it is that
+   *  length less two. */
   it('spells the route count off the sweep it is a count of', async () => {
     const source = await readFile(
       join(projectDir, 'config', 'scripts', 'build-mobile-web-app-bundle.test.mjs'),
       'utf8'
     )
     const rows = [
-      { precedes: 'routes in the tree', counted: MOBILE_WEB_APP_BUNDLE_SCRIPT_SWEEP.length - 1 }
+      { precedes: 'routes in the tree', counted: MOBILE_WEB_APP_BUNDLE_SCRIPT_SWEEP.length - 2 }
     ]
     for (const { precedes, spelled, counts } of spelledCountsAgainstTables(source, rows)) {
       expect(spelled, precedes).toEqual(counts)
@@ -598,13 +613,13 @@ describe('the Phase C budget', () => {
   it('fails the build when the derived ceiling passes what the phone will accept', async () => {
     // The shell hands back null for a manifest over its own ceiling, so a derived ceiling above
     // that ships a green build no device can open. At the 42 images the tree carries, the envelope
-    // plus 42 plus the document crosses 256 at 31 routes, which Phase C reaches. The crossing came
+    // plus 42 plus the document crosses 256 at 32 routes, which Phase C reaches. The crossing came
     // in from 50 with the envelope: it grants the worst swept route to each one past the sweep,
     // where `4r + 16` granted four, so re-measuring a tree whose routes share more moves it out.
     expect(await readMobileWebBundleMaxAssets()).toBe(MOBILE_WEB_BUNDLE_MAX_ASSETS)
-    expect(assertAssetCeilingFitsShell(30, 42, MOBILE_WEB_BUNDLE_MAX_ASSETS)).toBe(248)
-    expect(() => assertAssetCeilingFitsShell(31, 42, MOBILE_WEB_BUNDLE_MAX_ASSETS)).toThrow(
-      /257 .*256/
+    expect(assertAssetCeilingFitsShell(31, 42, MOBILE_WEB_BUNDLE_MAX_ASSETS)).toBe(251)
+    expect(() => assertAssetCeilingFitsShell(32, 42, MOBILE_WEB_BUNDLE_MAX_ASSETS)).toThrow(
+      /260 .*256/
     )
   })
 })

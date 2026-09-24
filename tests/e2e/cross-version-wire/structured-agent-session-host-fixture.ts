@@ -19,6 +19,7 @@ export function structuredHostStub(
     // `installableHost` below is what reassembles the member. Keeping them flat also lets the
     // manifest name them to prove a call reached the host.
     restartResumableList: vi.fn(async () => []),
+    restartResumableFailures: vi.fn(async () => []),
     restartResumableDismiss: vi.fn(async () => 0),
     restartResumeAll: vi.fn(async () => []),
     restartContinueAll: vi.fn(async () => ({ resumed: [], continued: [] })),
@@ -74,6 +75,12 @@ export function structuredHostStub(
     readOptions: vi.fn(async () => ({ models: [], current: { model: 'gpt-live' } })),
     readCommands: vi.fn(() => ({ commands: [{ name: 'clear', kind: 'command' as const }] })),
     history: vi.fn(() => ({ ok: true, page: { items: [] } })),
+    journalSnapshot: vi.fn(() => ({
+      sessionId,
+      cursor: { epoch: 'epoch-a', sequence: 0 },
+      items: [],
+      submissions: []
+    })),
     subscribe: vi.fn(() => () => undefined),
     subscribeStatus: vi.fn((subscriber: { emit: (event: unknown) => void }) => {
       subscriber.emit({ type: 'snapshot', sessions: [] })
@@ -97,6 +104,7 @@ export function installableHost(
     ...hostCalls,
     restartResume: {
       list: hostCalls.restartResumableList,
+      listFailures: hostCalls.restartResumableFailures,
       dismiss: hostCalls.restartResumableDismiss,
       resume: hostCalls.restartResumeAll,
       continueAfterRestart: hostCalls.restartContinueAll

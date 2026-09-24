@@ -101,6 +101,7 @@ ingests the summary into the hook server as a status row:
 | `worktreeId`                                        | `summary.workspaceId` (a folder workspace id is a valid value)                                                                                  |
 | `state`                                             | `structuredAgentSessionAgentStatus(summary).state`: the lead's own status folded with its live `backgroundTasks`, so a settled lead whose subagent still runs reads `working`  |
 | `workingMode`                                       | `'monitoring'` from the same fold when watch loops are the only live child work; omitted otherwise, which clears it on the row                  |
+| `mainAgent`                                              | the main agent's own state before the fold, its last-turn verdict (`summary.turnOutcome`, present only while idle) and its own clock; see "The main agent fact" below |
 | `structuredHost`                                    | `'owned'` while `summary.hostExecutionOwned` is set, otherwise `'held'`; `worktree ps` derives its row's `structuredHostOwned` from it          |
 | prompt, tool, last message, model, provider session | the summary's fields                                                                                                                            |
 
@@ -186,6 +187,76 @@ Until PR 2 the main process does not forward structured rows to the renderer
 over `agentStatus:set` or `agentStatus:getSnapshot`. The renderer's feed
 bridge still writes those rows itself, and forwarding them too would give one
 pane key two writers. Removing that filter is the first step of PR 2.
+
+### The main agent fact
+
+Claude, Codex and Grok hook rows and structured-session rows publish the combined
+`state` and, beside it, the main agent's own state as `payload.mainAgent`. Other agents'
+rows and terminal-title-only rows carry none, and readers fall back to `state`:
+
+```ts
+mainAgent?: { state: AgentStatusState; outcome?: AgentJournalTurnOutcome; stateStartedAt: number }
+```
+
+`state` still answers "what should the user see" and folds live child work in,
+so a settled main agent whose subagent still runs reads `working`. `mainAgent` answers
+"what is the main agent itself doing", which the fold used to destroy at publish
+time; every guard that reconstructed a fragment of it (`fromChildWork`, the
+persisted `claudeLeadBoundaryChildOnly` flag) now reads `mainAgent` instead of a
+stored copy. A Claude row whose `mainAgent` is `done` while a child agent still
+works (including a child's permission wait) refuses OSC, which carries no child
+identity; the children's own lifecycle hooks settle it. `outcome` is the recorded verdict on
+the main agent's most recent finished turn, present only while `mainAgent.state` is
+`done`. It is reported by the provider, or is a `cancellation` Orca inferred
+from the user's own interrupt keystroke (the journal's turn outcome, by
+contrast, is never inferred). A plain end of turn carries none, because absent
+means unknown and a provider that omits its interrupt flag must not turn a
+cancel into a success.
+In the Claude hook lane the cancellation comes primarily from Orca's own
+inferred interrupt (`markClaudeLeadTurnInterrupted`), because current Claude
+sends no hook at all on a cancel and no `is_interrupt` on Stop; that flag on a
+turn boundary remains a secondary source for builds that send it, and
+`StopFailure` maps to `failure`.
+
+Admission is one function, `normalizeAgentStatusPayload`, on the relay wire,
+IPC and disk. A malformed `mainAgent` drops the field and keeps the row. Old hosts
+send none and readers fall back to `state`. Hook rows persist it inside the
+payload; hydration maps an older row's `claudeLeadBoundaryChildOnly: true`
+onto `mainAgent: { state: 'done' }` when the row has no `mainAgent`, and never writes the
+flag again. Hydration seeds the Claude main agent record straight from a saved
+`mainAgent` that is `done`, so the children's drain can still settle the row after
+a restart. `claudeRunningNonAgentTask` is persisted alongside because it is the one
+child-work fact `mainAgent` cannot express: a shell running beside the main agent,
+whose liveness hydration does not restore. Hydration seeds only a row that says
+`false`; a row silent about it stays unseeded. The row builder pairs the two facts in
+one place: a listener event restates the shell fact, and any other write (an OSC
+repaint, an inferred answer) keeps it only while `mainAgent` is unchanged. A child's
+sticky permission prompt still records the main agent's own progress and background
+evidence in the held row, and pushes the held row to subscribers when `mainAgent` changes.
+
+Every lane, Codex included, combines through the fold. A child waiting on a
+human is a fold input (`childWorkLiveness: 'waiting'`, derived from the child's
+own `waiting` state; a child's `blocked` means it failed and stays live work)
+and makes the row wait whatever the main agent is doing, unless the main agent
+is itself asking. Only the Codex hook lane feeds that input today. Known
+divergences, pinned by name in the parity table
+(`src/shared/main-agent-status-parity.test.ts`) where they are reachable, so a
+reader does not mistake them for drift:
+
+- A cancelled turn with a still-running shell reads `done` in the hook lane
+  and `monitoring` in the structured lane; the cancel policy that removes it
+  flips that row.
+- The Claude hook lane holds a child's permission wait in one slot on the
+  displaced main agent record (`waitingAgentId`, `stateBeforeWait`), not on
+  the child. It publishes the displaced state as `mainAgent`, but the next
+  main agent event overwrites the slot, so the row stops reading `waiting`
+  while the child is still asking, and a second asking child replaces the
+  first.
+- The structured lane has no per-child wait: a child's pending prompt makes
+  the session `attention`, which reads as the main agent's own `blocked`.
+- The Codex hook lane drops its roster on a root `Stop` when it tracks no
+  child transcripts, so a still-running or still-asking child stops holding
+  the row.
 
 ## PR 1b: the runtime's retained row store is deleted
 

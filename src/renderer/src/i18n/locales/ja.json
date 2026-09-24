@@ -358,7 +358,6 @@
           "9e2a9bb87b": "Continue",
           "6f8056a565": "Command Code",
           "4238b771b5": "Codebuff",
-          "b0b350de65": "Freebuff",
           "cbaf0c2e0b": "Cline",
           "1f8a19e9ad": "Autohand Code",
           "5e8eff11b3": "Auggie",
@@ -5996,7 +5995,16 @@
             "defaultCopy": "対応 Agent の新規ターミナルタブを開く方法を選択します。",
             "defaultViewLabel": "デフォルトの Chat UI ビュー",
             "defaultViewTerminal": "ターミナルチャット",
-            "defaultViewNative": "Chat UI"
+            "defaultViewNative": "Chat UI",
+            "shellEnvNamesLabel": "シェルから渡す変数",
+            "shellEnvNamePlaceholder": "変数名",
+            "shellEnvNameAdd": "追加",
+            "shellEnvNameRemove": "{{value0}} を削除",
+            "shellEnvNamesEmpty": "まだ変数は追加されていません。",
+            "shellEnvNamesAlwaysPassed": "PATH、ロケール、SSH_AUTH_SOCK は常に渡されます。次にチャットを開始または再開したときに適用されます。",
+            "shellEnvTitle": "シェル環境を使用する",
+            "shellEnvCopy": "Codex と Claude のチャットは、ターミナルと同じく、ログインシェルがエクスポートするすべての変数を引き継いで開始します。オフにすると、渡す変数を選択できます。",
+            "shellEnvToggleLabel": "シェル環境の使用の切り替え"
           },
           "agentDashboard": {
             "title": "Agent ダッシュボード",
@@ -8623,6 +8631,20 @@
             }
           }
         },
+        "machine": {
+          "name": {
+            "search": {
+              "title": "マシン名",
+              "description": "他のデバイスやホストでこのコンピューターを表示する名前を選びます。",
+              "machineName": "マシン名",
+              "machine": "マシン",
+              "hostname": "ホスト名",
+              "computer": "コンピューター",
+              "rename": "名前変更",
+              "name": "名前"
+            }
+          }
+        },
         "mobile": {
           "emulator": {
             "search": {
@@ -9901,6 +9923,12 @@
           "step2LocalDescription": "スマートフォンが Tailscale または Wi‑Fi でこのアドレスに到達できる必要があります。",
           "step2RelayDescription": "任意。近く（同じ Wi‑Fi または Tailscale）にいるときにスマホが使うアドレスを選びます。通常は Relay より高速です。外出中は引き続き Relay が使われます。",
           "step2RelayDisclosure": "より速いローカル経路も使う"
+        },
+        "MachineNameField": {
+          "label": "マシン名",
+          "description": "他のデバイスやホストには「{{name}}」と表示されます。空欄にするとコンピューター自身の名前を使います。",
+          "pending": "他のデバイスやホストにはこの名前が表示されます。空欄にすると検出されたコンピューター名を使います。",
+          "placeholder": "自動検出"
         },
         "MobileRelayBetaAvailability": {
           "about": "Orca Relay ベータについて",
